@@ -20,7 +20,7 @@ function get_wep_key() {
    elif [[  $wep_key =~ ^[a-zA-Z0-9]{13}$ ]] ; then
 		echo "Key accepted"
 	else
-		echo "Wep key must be exactly 5 or 13 characters"
+		echo "WEP key must be exactly 5 or 13 characters"
 		get_wep_key
 	fi
 }
@@ -29,7 +29,7 @@ function get_wep_key() {
 function get_mac() {
 	echo -n "Enter MAC address in the following format AB:CD:EF:12:34:56: "
 	read new_mac
-	if [[  $new_mac =~ ^[a-zA-Z0-9]{2}:[a-zA-Z0-9]{2}:[a-zA-Z0-9]{2}:[a-zA-Z0-9]{2}:[a-zA-Z0-9]{2}:[a-zA-Z0-9]{2}$ ]] ; then
+	if [[  $new_mac =~ ^[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}:[a-fA-F0-9]{2}$ ]] ; then
 		macchanger --mac=$new_mac wlan0
    else
 		echo "MAC Address format not correct."
@@ -37,6 +37,7 @@ function get_mac() {
 	fi
 }
 
+# ask for WEP
 echo -n "Do you want WEP enabled? [y/n]: "
 read wep
 case $wep in
@@ -47,30 +48,28 @@ case $wep in
 	;;
 esac
 
+# ask for MAC change
 echo -n "Do you want to change your MAC? [y/n]: "
 read changemac
 case $changemac in
 	y*)
-		echo -n "Random MAC? [y/n]: "
+		echo -n "Custom MAC? [y/n]: "
       read random_mac
 		case $random_mac in
 			y*)
-				macchanger -r wlan0
-			;;
-			n*)
 				get_mac
 			;;
+			n*)
+				macchanger -r wlan0
+			;;
 			*)
-				echo "You didn't type y or n. Assuming n."
+				echo "Invalid choice, keeping current MAC address."
 			;;
 		esac
 	;;
    n*)
 	;;
 esac
-
-
-
 
 # install packages if need be
 if [ $(dpkg-query -W -f='${Status}' dnsmasq 2>/dev/null | grep -c "ok installed") -eq 0 ];
@@ -116,14 +115,14 @@ ifconfig wlan0 10.0.0.1/24 up
 sysctl net.ipv4.ip_forward=1
 iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
 
-# dns masq
+# dns masq conf
 cat > /tmp/dnsmasq.conf <<!
 bind-interfaces
 interface=wlan0
 dhcp-range=10.0.0.2,10.0.0.254
 !
 
-# hostapd
+# hostapd conf
 cat > /tmp/hostapd.conf<<!
 interface=wlan0
 driver=nl80211
@@ -132,8 +131,9 @@ hw_mode=g
 channel=6
 !
 
-
+# if WEP key, add to hostapd conf
 if [[ -n $wep_key ]]; then echo -e "wep_default_key=0\nwep_key0=\"${wep_key}\"" >> /tmp/hostapd.conf; fi
 
+# run dnsmasq and hostapd
 dnsmasq --pid-file=/tmp/dnsmasq.run -C /tmp/dnsmasq.conf
 hostapd /tmp/hostapd.conf
