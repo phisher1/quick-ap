@@ -107,6 +107,7 @@ pkill -9 dnsmasq
 pkill -9 hostapd
 
 # bring up wlan0
+nmcli radio wifi off
 rfkill unblock wlan
 iwconfig wlan0 mode monitor
 ifconfig wlan0 10.0.0.1/24 up
